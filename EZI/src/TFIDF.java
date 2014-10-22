@@ -95,7 +95,8 @@ public class TFIDF {
 	private static final String help = "Available commands:\n" + "t [file] : load terms\n"
 			+ "d [file] : load documents\n" + "s        : show stemmed documents\n"
 			+ "q [file] : execute queries from file\n" + "e [term1, term2, ...] : execute single query from stdin\n"
-			+ "x        : exit\n" + "\nNEW COMMAND AVAIBLE!!!\n" +"r [term1, term2, ...] : execute sigle query from stdin with REVELANT FEEEDBACK support\n";
+			+ "x        : exit\n" + "\nNEW COMMAND AVAIBLE!!!\n"
+			+ "r [term1, term2, ...] : execute sigle query from stdin with REVELANT FEEEDBACK support\n";
 
 	private void showHelp() {
 		System.out.println(help);
@@ -313,28 +314,14 @@ public class TFIDF {
 	private void handleQueryWithRevelant(String data) {
 		float[] query = readQuery(data);
 		printQuery(query);
-		if (documents.size() == 0) {
-			throw new IllegalStateException("Load documents first.");
-		}
-		double[] queryTFIDF = computeTFIDF(query);
-		double queryLen = vectorLen(queryTFIDF);
-		TreeMap<Double, Integer> sorted = new TreeMap<Double, Integer>();
-		for (int i = 0; i < documents.size(); i++) {
-			double s = 0;
-			double[] doc = TFIDF.get(i);
-			double[] sim = (double[]) queryTFIDF.clone();
-			for (int j = 0; j < N; j++) {
-				sim[j] *= doc[j];
-			}
-			double div = queryLen * TFIDFlen.get(i);
-			if (div == 0) {
-				s = 0;
-			} else {
-				s = vectorLen(sim) / div;
-			}
-			sorted.put(-s, i);
-		}
+		TreeMap<Double, Integer> sorted = solveQuery(query);
 		int i = 0;
+
+		float[] good = new float[N];
+		float[] bad = new float[N];
+		int badCount = 0;
+		int goodCount = 0;
+
 		for (Entry<Double, Integer> e : sorted.entrySet()) {
 			if (-e.getKey() <= minValue)
 				break;
@@ -359,12 +346,16 @@ public class TFIDF {
 				}
 			}
 			double[] doc = TFIDF.get(id);
-			float ratio = ok ? b : -c;
+			
+			float[] tab = ok ? good : bad;
+			if(ok) goodCount++; else badCount++;
+			
 			for (int j = 0; j < N; j++) {
-				query[j] += ratio * doc[j];
-				if (query[j] < 0)
-					query[j] = 0;
+				tab[j] += doc[j];
 			}
+		}
+		for (int j = 0; j < N; j++) {
+			query[j] = Math.max(0, a * query[j] + b * good[j]/Math.max(goodCount, 1) - c * bad[j]/Math.max(badCount, 1));
 		}
 		printQuery(query);
 		solveAndPrint(query);
