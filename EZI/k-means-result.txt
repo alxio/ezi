@@ -1,0 +1,128 @@
+alxio@alxio-PC:~/repositories/ezi/EZI/bin$ java TFIDF ../keywords-2.txt ../documents-2.txt 9
+iteration 1 J = 28.897709724667976
+iteration 2 J = 32.053587205433715
+iteration 3 J = 33.733804861036155
+iteration 4 J = 33.83557366570978
+k-means ended after 4 iterations
+Total docs: 103
+Group 1 size: 11
+11: animal planet
+12: animal planet
+13: animal planet
+14: animal planet
+15: animal planet
+16: animal planet
+17: animal planet
+18: animal planet
+75: pythonsnake
+87: pythonsnake
+90: pythonsnake
+
+Group 2 size: 15
+19: javaisland
+20: javaisland
+24: javaisland
+25: javaisland
+26: javaisland
+27: javaisland
+28: javaisland
+29: javaisland
+30: javaisland
+31: javaisland
+32: javaprogramming
+33: javaprogramming
+34: javaprogramming
+41: javaprogramming
+42: javaprogramming
+
+Group 3 size: 10
+93: svd
+94: svd
+95: svd
+96: svd
+97: svd
+98: svd
+99: svd
+100: svd
+101: svd
+102: svd
+
+Group 4 size: 4
+21: javaisland
+22: javaisland
+23: javaisland
+40: javaprogramming
+
+Group 5 size: 10
+43: meatpuppets
+44: meatpuppets
+45: meatpuppets
+46: meatpuppets
+47: meatpuppets
+48: meatpuppets
+49: meatpuppets
+50: meatpuppets
+51: meatpuppets
+52: meatpuppets
+
+Group 6 size: 15
+35: javaprogramming
+36: javaprogramming
+37: javaprogramming
+38: javaprogramming
+39: javaprogramming
+53: perl
+54: perl
+55: perl
+56: perl
+57: perl
+58: perl
+59: perl
+60: perl
+61: perl
+62: perl
+
+Group 7 size: 13
+63: python
+64: python
+65: python
+66: python
+67: python
+68: python
+69: python
+70: python
+71: python
+72: python
+80: pythonsnake
+83: pythonsnake
+86: pythonsnake
+
+Group 8 size: 9
+73: pythonsnake
+74: pythonsnake
+76: pythonsnake
+77: pythonsnake
+78: pythonsnake
+79: pythonsnake
+81: pythonsnake
+82: pythonsnake
+91: pythonsnake
+
+Group 9 size: 16
+0: anaconda
+1: anaconda
+2: anaconda
+3: anaconda
+4: anaconda
+5: anaconda
+6: anaconda
+7: anaconda
+8: anaconda
+9: anaconda
+10: anaconda
+84: pythonsnake
+85: pythonsnake
+88: pythonsnake
+89: pythonsnake
+92: pythonsnake
+

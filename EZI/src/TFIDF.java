@@ -3,8 +3,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.TreeMap;
 
@@ -25,12 +28,16 @@ public class TFIDF {
 
 	private int N = 0;
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws Exception {
 		TFIDF t = new TFIDF();
-		if (args.length == 3) {
+		if (args.length == 4) {
 			t.readTerms(args[0]);
 			t.readDocuments(args[1]);
-			t.handleQueries(args[2]);
+			t.handleQueries(args[3]);
+		} else if (args.length == 3) {
+			t.readTerms(args[0]);
+			t.readDocuments(args[1]);
+			t.kMeans(Integer.parseInt(args[2]));
 		} else if (args.length == 2) {
 			System.out.println("Trying to read terms from " + args[0]);
 			t.readTerms(args[0]);
@@ -43,8 +50,9 @@ public class TFIDF {
 			t.loop();
 		} else {
 			System.out
-					.println("Entering interactive mode. To use program in batch mode, enter paths to TERMS, DOCUMENTS and QUERIES in arguments.\n"
-							+ "You can also enter TERMS and DOCUMENTS for pre-loading and futher interactive work.");
+					.println("Entering interactive mode. To use program in batch mode, enter paths to TERMS, DOCUMENTS 'q' and QUERIES in arguments.\n"
+							+ "You can also enter TERMS and DOCUMENTS for pre-loading and futher interactive work."
+							+ "NEW FEATURE!!!! You can also enter TERMS, DOCUMENTS and K to group into K groups.");
 			t.showHelp();
 			t.loop();
 		}
@@ -80,6 +88,10 @@ public class TFIDF {
 					file = sc.nextLine();
 					handleQueryWithRevelant(file);
 					break;
+				case 'g':
+					int k = Integer.parseInt(sc.nextLine().substring(1));
+					kMeans(k);
+					break;
 				case 'x':
 					return;
 				default:
@@ -92,11 +104,122 @@ public class TFIDF {
 		}
 	}
 
-	private static final String help = "Available commands:\n" + "t [file] : load terms\n"
-			+ "d [file] : load documents\n" + "s        : show stemmed documents\n"
-			+ "q [file] : execute queries from file\n" + "e [term1, term2, ...] : execute single query from stdin\n"
-			+ "x        : exit\n" + "\nNEW COMMAND AVAIBLE!!!\n"
-			+ "r [term1, term2, ...] : execute sigle query from stdin with REVELANT FEEEDBACK support\n";
+	private int[] getRandoms(int k, int max) {
+		Random R = new Random();
+		HashSet<Integer> used = new HashSet<Integer>();
+		int[] data = new int[k];
+		for (int i = 0; i < k; ++i) {
+			int n;
+			do
+				n = R.nextInt(max);
+			while (used.contains(n));
+			used.add(n);
+			data[i] = n;
+		}
+		Arrays.sort(data);
+		return data;
+	}
+
+	private void kMeans(int k) throws Exception {
+		if (k > documents.size())
+			throw new Exception("K is larger then number of documents!");
+		double[][] means = new double[k][terms.size()];
+		double[] lens = new double[k];
+		ArrayList<Integer> groups[] = null;
+		{
+			int[] start = getRandoms(k, documents.size());
+			for (int i = 0; i < k; ++i) {
+				means[i] = TFIDF.get(start[i]).clone();
+				lens[i] = TFIDFlen.get(start[i]);
+			}
+		}
+		int it = 0;
+		while (true) {
+			@SuppressWarnings("unchecked")
+			ArrayList<Integer> newGroups[] = new ArrayList[k];
+			for (int i = 0; i < k; ++i)
+				newGroups[i] = new ArrayList<Integer>();
+
+			for (int i = 0; i < documents.size(); ++i) {// foreach doc
+				double[] doc = TFIDF.get(i);
+				double len = TFIDFlen.get(i);
+				int id = 0;
+				double max = 0;
+				for (int j = 0; j < k; ++j) {// foreach mean
+					double sim = cosineSimilarity(doc, means[j], len, lens[j]);
+					if (sim > max) {
+						max = sim;
+						id = j;
+					}
+				}
+				newGroups[id].add(i);
+			}
+			boolean same = true;
+			if (groups == null)
+				same = false;
+			else
+				for (int i = 0; i < k; ++i) {
+					if (groups[i].size() != newGroups[i].size()) {
+						same = false;
+						break;
+					}
+					for (int j = 0; j < groups[i].size(); ++j) {
+						if (groups[i].get(j) != newGroups[i].get(j)) {
+							same = false;
+							break;
+						}
+					}
+				}
+			if (same)
+				break;
+			groups = newGroups;
+			double J = 0;
+			for (int i = 0; i < k; ++i) {
+				double[] v = new double[N];
+				for (Integer docid : groups[i]) {
+					for(int j=0;j<N;++j){
+						v[j] += TFIDF.get(docid)[j];
+					}
+				}
+				if(groups[i].size() > 0)
+					for(int j=0;j<N;++j){
+						v[j] /= groups[i].size();
+					}
+				lens[i] = vectorLen(v);
+				means[i] = v;
+				for (Integer docid : groups[i]) {
+					J += cosineSimilarity(TFIDF.get(docid), v, TFIDFlen.get(docid), lens[i]);
+				}
+			}
+			++it;
+			System.out.println("iteration " + it + " J = " + J);
+		}
+		System.out.println("k-means ended after " + it + " iterations");
+		printGroups(groups);
+	}
+
+	private void printGroups(ArrayList<Integer>[] groups) {
+		System.out.println("Total docs: " + documents.size());
+		for (int i = 0; i < groups.length; ++i) {
+			System.out.println("Group " + (i + 1) + " size: "
+					+ groups[i].size());
+			for (Integer docid : groups[i]) {
+				System.out.println(docid + ": " + docTitles.get(docid));
+			}
+			System.out.println();
+		}
+	}
+
+	private static final String help = "Available commands:\n"
+			+ "t [file] : load terms\n"
+			+ "d [file] : load documents\n"
+			+ "s        : show stemmed documents\n"
+			+ "q [file] : execute queries from file\n"
+			+ "e [term1, term2, ...] : execute single query from stdin\n"
+			+ "x        : exit\n"
+			+ "r [term1, term2, ...] : execute sigle query from stdin with REVELANT FEEEDBACK support\n"
+			+ "\nNEW COMMAND AVAIBLE!!!\n"
+			+ "g [k]    : group documents into k groups";
 
 	private void showHelp() {
 		System.out.println(help);
@@ -141,7 +264,8 @@ public class TFIDF {
 	}
 
 	public void readTerms(String filename) throws IOException {
-		ArrayList<ArrayList<String>> stemmedData = Stemmer.readFile(filename, false);
+		ArrayList<ArrayList<String>> stemmedData = Stemmer.readFile(filename,
+				false);
 		if (stemmedData.size() != 1)
 			throw new IllegalArgumentException("Bad file format!");
 		terms.clear();
@@ -167,7 +291,8 @@ public class TFIDF {
 
 	private void readTitles(String filename) throws IOException {
 		docTitles.clear();
-		BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(filename)));
+		BufferedReader br = new BufferedReader(new InputStreamReader(
+				new FileInputStream(filename)));
 		String line;
 		boolean empty = true;
 		while ((line = br.readLine()) != null) {
@@ -183,7 +308,8 @@ public class TFIDF {
 			throw new IllegalStateException("Load terms first.");
 		}
 		readTitles(filename);
-		ArrayList<ArrayList<String>> stemmedDocs = Stemmer.readFile(filename, false);
+		ArrayList<ArrayList<String>> stemmedDocs = Stemmer.readFile(filename,
+				false);
 		documents.clear();
 		for (ArrayList<String> stemmed : stemmedDocs) {
 			float[] doc = new float[N];
@@ -238,6 +364,20 @@ public class TFIDF {
 		System.out.println();
 	}
 
+	private double cosineSimilarity(double[] v1, double[] v2, double len1,
+			double len2) {
+		double div = len1 * len2;
+		if (div == 0) {
+			return 0;
+		} else {
+			double[] sim = v1.clone();
+			for (int i = 0; i < N; i++) {
+				sim[i] *= v2[i];
+			}
+			return vectorLen(sim) / div;
+		}
+	}
+
 	private TreeMap<Double, Integer> solveQuery(float[] query) {
 		if (documents.size() == 0) {
 			throw new IllegalStateException("Load documents first.");
@@ -246,25 +386,16 @@ public class TFIDF {
 		double queryLen = vectorLen(queryTFIDF);
 		TreeMap<Double, Integer> sorted = new TreeMap<Double, Integer>();
 		for (int i = 0; i < documents.size(); i++) {
-			double s = 0;
-			double[] doc = TFIDF.get(i);
-			double[] sim = (double[]) queryTFIDF.clone();
-			for (int j = 0; j < N; j++) {
-				sim[j] *= doc[j];
-			}
-			double div = queryLen * TFIDFlen.get(i);
-			if (div == 0) {
-				s = 0;
-			} else {
-				s = vectorLen(sim) / div;
-			}
+			double s = cosineSimilarity(queryTFIDF, TFIDF.get(i), queryLen,
+					TFIDFlen.get(i));
 			sorted.put(-s, i);
 		}
 		return sorted;
 	}
 
 	public void handleQueries(String filename) throws IOException {
-		ArrayList<ArrayList<String>> stemmedQueries = Stemmer.readFile(filename, true);
+		ArrayList<ArrayList<String>> stemmedQueries = Stemmer.readFile(
+				filename, true);
 		for (ArrayList<String> basicQuery : stemmedQueries) {
 			float[] query = readQuery(basicQuery);
 			printQuery(query);
@@ -346,16 +477,21 @@ public class TFIDF {
 				}
 			}
 			double[] doc = TFIDF.get(id);
-			
+
 			float[] tab = ok ? good : bad;
-			if(ok) goodCount++; else badCount++;
-			
+			if (ok)
+				goodCount++;
+			else
+				badCount++;
+
 			for (int j = 0; j < N; j++) {
 				tab[j] += doc[j];
 			}
 		}
 		for (int j = 0; j < N; j++) {
-			query[j] = Math.max(0, a * query[j] + b * good[j]/Math.max(goodCount, 1) - c * bad[j]/Math.max(badCount, 1));
+			query[j] = Math.max(0,
+					a * query[j] + b * good[j] / Math.max(goodCount, 1) - c
+							* bad[j] / Math.max(badCount, 1));
 		}
 		printQuery(query);
 		solveAndPrint(query);
